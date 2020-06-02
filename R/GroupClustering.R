@@ -9,7 +9,8 @@
 #' @param PvaluesMatrix a matrix containing the p-values of the comparisons of
 #'  each possible pairs of effects in the lower triangle (excluding the diagonal)
 #' @param CI a matrix containing with three columns containint the effects,
-#'  the lower limits and the upper limits of a confidence interval for the effects (default = NULL, indicating that no confidence intervals are available)
+#'  the lower limits and the upper limits of a confidence interval for the
+#'  effects (default = NULL, indicating that no confidence intervals are available)
 #' @param Effects a vector containing the effects
 #' @param SignificanceLevel the significance level of the pairwise comparisons
 #'  (default = 0.05)
@@ -45,9 +46,8 @@
 #' @examples plot(TT)
 #' @keywords post-hoc
 #' @keywords pairwise-comparisons
-#' @import igraph
-#' @import multcomp
-#' @exportClass PostHoc
+#' @import igraph multcomp
+#' @importFrom igraph  maximal.cliques plot.igraph
 #' @export
 FormGroupsClusters <- function(
   PvaluesMatrix,
@@ -202,7 +202,8 @@ FormGroupsClusters <- function(
 #'  coefficient are used).
 #' @param ParBootstrap logic flag indicating whether the confidence intervals
 #'  should be calculated with parametric bootstrap (default is false, i.e.
-#'  the Wald confidence interval is used).
+#'  the Wald confidence interval is used). Not implemented for objects of class
+#'  lme.
 #' @param Nboots number of bootstrap samples used for the confidence interval.
 #'  (default = 999).
 #' @param SignificanceLevel the significance level of the pairwise comparisons
@@ -218,9 +219,11 @@ FormGroupsClusters <- function(
 #' @param PlotAdj should the associated graph be printed(default = FALSE).
 #' @param digits number of digits in the output (default = 4)
 #' @param EffectsMatrix matrix defining contrasts to be compared
-#'  (bypasses the EffectIndices, default is NULL, meaning that standard inference is performed).
+#'  (bypasses the EffectIndices, default is NULL, meaning that standard
+#'  inference is performed).
 #' @param padjust method for correcting the p-values (before the calculations
-#'  are performed) as in the function p.adjust (Default is NULL, indicating that no multiple testing corrections are used)
+#'  are performed) as in the function p.adjust (Default is NULL, indicating
+#'  that no multiple testing corrections are used)
 #' @param CalcClusters should the clusters be calculated and displayed
 #'  instead of grouping (Default is FALSE)
 #' @param Scale a scaling factor multiplying the output table (default = 1,
@@ -230,6 +233,8 @@ FormGroupsClusters <- function(
 #' @param isBinomialModel a logical flag indicating whther the model is a
 #'  binomial model different than the Bernoulli (default = FALSE, i.e. not a
 #'  binomial model).
+#' @param  BackTransform  should the parameters and CIs be back transformed by
+#'   applying the inverse link function (default = TRUE)
 #' @return an object of (S3) class "PostHoc" with methods for print, summary,
 #'  plot, barplot and lines defined. An object of class "PostHoc" contails the
 #'  effects, grouping, the matrix of p-values of all pairwise comparisons, the
@@ -259,8 +264,10 @@ FormGroupsClusters <- function(
 #'          SignificanceLevel = 0.05, UpperCase = FALSE,
 #'          RankLabels = TRUE, WaldApproximation = FALSE,
 #'          CalcClusters = FALSE, QUIET = TRUE, PlotAdj = FALSE,
-#'          digits = 4, padjust = NULL,
-#'          Scale = 1.0, Location = 0.0, isBinomialModel = FALSE)
+#'          digits = 4, padjust = NULL, Scale = 1.0, Location = 0.0,
+#'          isBinomialModel = FALSE, BackTransform = TRUE)
+#' @import multcomp
+#' @importFrom multcomp glht
 #' @importFrom stats coef model.frame model.matrix p.adjust update
 #' @importFrom stats pnorm pt qnorm qnorm simulate simulate vcov quantile
 #' @importFrom utils install.packages installed.packages
@@ -282,7 +289,8 @@ posthoc <- function(Model,
                     padjust = NULL,
                     Scale = 1.0,
                     Location = 0.0,
-                    isBinomialModel = FALSE
+                    isBinomialModel = FALSE,
+                    BackTransform = TRUE
 ){
 
   if ( !(class(Model)[1] == "glmerMod" |
@@ -310,6 +318,11 @@ posthoc <- function(Model,
 
   if (class(Model)[1] == "lme"){
     Effects <- Model$coefficients$fixed
+  }
+
+  if (class(Model)[1] == "lme" & ParBootstrap == TRUE){
+    warning("Parametric bootstrap CIs are not implemented for lme models yet. Switched to Wald CIs.")
+    ParBootstrap <- FALSE
   }
 
   if (is.null(EffectIndices)) EffectIndices <- 1:length(Effects)
@@ -398,7 +411,8 @@ posthoc <- function(Model,
                   EffectLabels = EffectLabels, ParBootstrap = ParBootstrap, Nboots = Nboots,
                   coverage = 1 - SignificanceLevel,
                   digits = digits, EffectsMatrix = EffectsMatrix, Scale = Scale,
-                  Location = Location, isBinomialModel = isBinomialModel )
+                  Location = Location, isBinomialModel = isBinomialModel,
+                  BackTransform = BackTransform)
   # ---------------
 
   if(!is.null(EffectsMatrix) & !is.null(EffectLabels)){
@@ -425,9 +439,12 @@ posthoc <- function(Model,
 
   return(ObjectOut)
 }
+
 # ============================================================================ #
 
 # ============================================================================ #
+
+
 
 # ============================================================================ #
 #
@@ -468,10 +485,7 @@ fixedEffects <- function(
 # ============================================================================ #
 
 
-################################################################################
-# Calculates the Wald or a parametric bootstrap confidence interval of a
-# group of effects in a generalized linear (mixed) model
-################################################################################
+# ============================================================================ #
 #' Calculates the Wald or a parametric bootstrap confidence intervals for GLMs and GLMMs
 #'
 #' @author Rodrigo Labouriau
@@ -499,6 +513,8 @@ fixedEffects <- function(
 #'  i.e., no location shift is performed).
 #' @param isBinomialModel a logical flag indicating whther the model is a
 #'  binomial model different than the Bernoulli (default = FALSE, i.e. not a binomial model).
+#' @param  BackTransform  should the parameters and CIs be back transformed by
+#'   applying the inverse link function (default = TRUE)
 #' @return an object of (S3) class "PostHoc".
 #' @description posthoc is used to group or cluster the effects of liner,
 #'  generalised linear and generalised linear mixed models according to significance of pairwise tests comparing the levels of the effects.
@@ -514,7 +530,8 @@ fixedEffects <- function(
 #'          ParBootstrap = FALSE, Nboots = 999, digits = 4, coverage = 0.95,
 #'          UpperBound = Inf, SignificanceLevel =  1-coverage,
 #'          EffectsMatrix = NULL, Scale = 1.0, Location = 0.0,
-#'          isBinomialModel = FALSE)
+#'          isBinomialModel = FALSE, BackTransform = TRUE)
+#' @importFrom stats update quantile coef
 #' @export
 ExtractCI <- function(
   Model,
@@ -529,7 +546,8 @@ ExtractCI <- function(
   EffectsMatrix = NULL,
   Scale = 1.0,
   Location = 0.0,
-  isBinomialModel = FALSE
+  isBinomialModel = FALSE,
+  BackTransform = TRUE
 )
 {
   ## Check model class
@@ -737,19 +755,22 @@ ExtractCI <- function(
   Low  <- round(Low, digits=digits)
   Up   <- round(Up , digits=digits)
 
-  if (class(Model)[1] == "glmerMod"){
-    Parameter  <- round( Model@resp$family$linkinv(Coef), digits=digits )
-  }
+  ## Back transformation
+  if(BackTransform){
+      if (class(Model)[1] == "glmerMod"){
+        Parameter  <- round( Model@resp$family$linkinv(Coef), digits=digits )
+      }
 
-  if (class(Model)[1] == "glm"){
-    Parameter  <- round( (Model$family)$linkinv(Coef), digits=digits )
-  }
+      if (class(Model)[1] == "glm"){
+        Parameter  <- round( (Model$family)$linkinv(Coef), digits=digits )
+      }
 
-  if (class(Model)[1] == "lm" |
-      class(Model)[1] == "lmerMod"|
-      class(Model)[1] == "gls" |
-      class(Model)[1] == "lme" ){
-    Parameter  <- round(Coef, digits=digits )
+      if (class(Model)[1] == "lm" |
+        class(Model)[1] == "lmerMod"|
+        class(Model)[1] == "gls" |
+        class(Model)[1] == "lme" ){
+        Parameter  <- round(Coef, digits=digits )
+      }
   }
 
   ## Swiching bounds when the response function is decreasing
@@ -769,7 +790,226 @@ ExtractCI <- function(
 
   return(Out)
 }
-# ==============================================================================
+# ============================================================================ #
+
+# ============================================================================ #
+#
+# KruskalWallisAllPvalues
+#
+# ============================================================================ #
+#' Calculates all p-values of pairwise comparisons using a Kruskal-Wallis test
+#'
+#' @author Rodrigo Labouriau
+#' @param y is a vector with the response
+#' @param g is a single classification factor
+#' @param padjust the method for adjusting for multiple comparisons following
+#' the convention of the functions stats::p. adjust(default = "fdr"), NULL or
+#' "none" does not adjust
+#' @return a vector with the p-values for comparing all the possible pairs.
+#' @examples KruskalWallisAllPvalues(y = DeIdentifiedExample$Y,
+#'                                   g = DeIdentifiedExample$Treatment)
+#' @importFrom stats kruskal.test
+#' @export
+KruskalWallisAllPvalues <- function(
+  y,
+  g,
+  padjust = "fdr"
+)
+{
+  Nlevels <- nlevels(g)
+  Levels <- levels(g)
+  ContrastsM <- AllContrasts(Nlevels)
+  Nconstr <- dim(ContrastsM)[1]
+  Pvalues <- numeric(Nconstr)
+  for(i in 1:Nconstr){
+    Contr <- ContrastsM[i,]
+    ii <- which(Contr ==  1)
+    jj <- which(Contr == -1)
+    Oo <- g==Levels[ii] | g==Levels[jj]
+    Pvalues[i] <- kruskal.test(y[Oo] ~ g[Oo])$p.value
+  }
+  if(!is.null(padjust)) Pvalues <- p.adjust(Pvalues, method=padjust)
+  return(Pvalues)
+}
+# ============================================================================ #
+
+# ============================================================================ #
+#
+# MedianBootCI
+#
+# ============================================================================ #
+#' Confidence intervals for medians
+#'
+#' @author Rodrigo Labouriau
+#' @param y is a vector with the response.
+#' @param g is a single classification factor.
+#' @param Nboots number of bootstrap samples (default = 9999).
+#' @param Coverage the coverage probability of the confidence interval.
+#' @param digits the number of digits (devfault = 4)
+#' (default = 0.95)
+#' "none" does not adjust
+#' @return a matrix with three columns, the median, the lower bound and the
+#' upper bound of the confidence interval and one row for each level of g.
+#' @examples MedianBootCI (y = DeIdentifiedExample$Y,
+#'                                   g = DeIdentifiedExample$Treatment)
+#' @importFrom stats quantile
+#' @export
+MedianBootCI <- function(
+  y,
+  g,
+  Nboots = 9999,
+  Coverage = 0.95,
+  digits=4
+)
+{
+  g <- factor(g)
+  Median <- function(y) median(y, na.rm = TRUE)
+  Parameter <- tapply(y, g, Median)
+  Levels <- levels(g)
+  Nlevels <- nlevels(g)
+  Lower <- Upper <- numeric(Nlevels)
+  Aux <- numeric(Nboots)
+  for(k in 1:Nlevels){
+    yb <- y[g == Levels[k]]
+    for(b in 1:Nboots){
+      yboot <- sample(yb, replace = TRUE)
+      Aux[b] <- Median(yboot)
+    }
+    Lower[k] <- quantile(Aux, probs=((1-Coverage)/2), na.rm = TRUE )
+    Upper[k] <- quantile(Aux, probs=(1-(1-Coverage)/2), na.rm = TRUE  )
+  }
+  Out <- cbind(Parameter, Lower, Upper)
+  Out <- round(Out, digits = digits)
+  return(Out)
+}
+
+# ============================================================================ #
+# ============================================================================ #
+#
+# posthocKW
+#
+# ============================================================================ #
+#' Post-hoc analysis based on the Kruskal-Walis test
+#'
+#' @author Rodrigo Labouriau
+#' @param y is a vector with the response.
+#' @param g is a single classification factor.
+#' @param EffectIndices a vector containing the indices of the effects to be
+#'  analysed (default = NULL, indicating that all the levels are used).
+#' @param EffectLabels a character vector with the labels of the effects
+#'  (default = NULL, which implies that the corresponding labels of the model
+#'  coefficient are used).
+#' @param Nboots number of bootstrap samples used for the confidence interval.
+#'  (default = 9999).
+#' @param SignificanceLevel the significance level of the pairwise comparisons
+#'  (default = 0.05).
+#' @param UpperCase should upper case letters be used for labelling the
+#'  groups (default is FALSE).
+#' @param RankLabels should the labels of the grouping be sorted according to
+#'  the value of the response (default=TRUE)
+#' @param PlotAdj should the associated graph be printed(default = FALSE).
+#' @param digits number of digits in the output (default = 4)
+#' @param padjust method for correcting the p-values (before the calculations
+#'  are performed) as in the function p.adjust (Default is NULL, indicating
+#'  that no multiple testing corrections are used)
+#' @param CalcClusters should the clusters be calculated and displayed
+#'  instead of grouping (Default is FALSE)
+#' @param Scale a scaling factor multiplying the output table (default = 1,
+#'  i.e., no scaling is used).
+#' @param Location a location term added to the output table (default = 0,
+#'   i.e., no location shift is performed).
+#' @return an object of (S3) class "PostHoc" with methods for print, summary,
+#'  plot, barplot and lines defined. An object of class "PostHoc" contails the
+#'  effects, grouping, the matrix of p-values of all pairwise comparisons, the
+#'  graph (Gr) of adjacency, the confidence intervals of the effects, the
+#'  significance levels, the number of digits to be used for printing, the
+#'  list of maximal cliques of the graph Gr, the clusters (if calculated).
+#' @details The function contructs, using Kruskal-Wallis rank sum tests
+#'  all pairwise comparisosns, an undirected graph with vertices representing
+#'  the levels of the effects, using the convention that two vertices are
+#'  connected by an edge iff the p-value for testing equality the two vertices
+#'  is larger than the prefixed significance level. The maximal cliques of this
+#'  graph form the grouping of the levels of the effects.
+#' @description posthocKW is used to group or cluster effects using the
+#'  Kruskal-Wallis test for making a non-parametric based post-hoc analysis.
+#' @examples print( posthocKW(DeIdentifiedExample$Y, DeIdentifiedExample$Treatment) )
+#' @keywords post-hoc
+#' @keywords pairwise-comparisons
+#' @keywords non-parametric
+#' @usage posthocKW (y, g, EffectIndices = NULL, EffectLabels = NULL,
+#'          Nboots = 9999, SignificanceLevel = 0.05, UpperCase = FALSE,
+#'          RankLabels = TRUE, CalcClusters = FALSE, PlotAdj = FALSE,
+#'          digits = 4, padjust = NULL, Scale = 1.0, Location = 0.0)
+#' @importFrom stats p.adjust update kruskal.test median
+#' @export
+posthocKW <- function(
+  y,
+  g,
+  EffectIndices = NULL,
+  EffectLabels = NULL,
+  Nboots = 9999,
+  SignificanceLevel = 0.05,
+  UpperCase = FALSE,
+  RankLabels = TRUE,
+  CalcClusters = FALSE,
+  PlotAdj = FALSE,
+  digits = 4,
+  padjust = NULL,
+  Scale = 1.0,
+  Location = 0.0
+)
+{
+
+  if (is.null(EffectIndices)) EffectIndices <- 1:nlevels(g)
+  Levels <- levels(g)[EffectIndices]
+  y <- y[g %in% Levels]
+  g <- factor(g[g %in% Levels])
+  Effects <- tapply(y, g, median, na.rm = TRUE)
+
+  if(length(Effects)<2)stop("The dimension of the effects vector is 1, so there are no pairwise comparisons to be done. Please re-define the problem.")
+
+  if(is.null(EffectLabels)){
+    NameEffects <- levels(g)
+  } else{
+    NameEffects <- EffectLabels
+  }
+  Nlevels <- nlevels(g)
+
+  # Calculating p-values
+  Pvalues <- KruskalWallisAllPvalues(y = y, g = g, padjust = padjust)
+
+  PvaluesMatrix <- matrix(data = NA, nrow = Nlevels, ncol = Nlevels)
+  PvaluesMatrix[lower.tri(PvaluesMatrix)] <- Pvalues
+  row.names(PvaluesMatrix) <- NameEffects
+  colnames(PvaluesMatrix) <- NameEffects
+
+  # ---------------
+  CI <- MedianBootCI(
+    y = y,
+    g = g,
+    Nboots = Nboots,
+    Coverage = 1-SignificanceLevel,
+    digits = digits
+  )
+  # ---------------
+
+  # ---------------
+  ObjectOut <- FormGroupsClusters (PvaluesMatrix = PvaluesMatrix,
+                                   CI = CI,
+                                   Effects = Effects,
+                                   SignificanceLevel = SignificanceLevel,
+                                   UpperCase = UpperCase,
+                                   RankLabels = RankLabels,
+                                   PlotAdj = PlotAdj,
+                                   padjust = padjust,
+                                   CalcClusters = CalcClusters,
+                                   digits = digits)
+  # ---------------
+
+  return(ObjectOut)
+}
+
+# ============================================================================ #
 
 
 

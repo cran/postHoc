@@ -1,0 +1,134 @@
+---
+title: "Post-hoc Analysis Using the Package postHoc"
+author: "R. Labouriau"
+date: "Spring 2020"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Post-hoc Analysis Using the Package postHoc}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+  \usepackage{graphicx}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, warning = FALSE, message=FALSE}
+library(postHoc)
+```
+
+We illustrate here some very basic *post hoc* analysis techniques implemented in the package *postHoc*. 
+
+#### A Simple Example
+
+Consider the following data-frame supplied with *postHoc*.
+```{r}
+str(DeIdentifiedExample)
+```
+Here, *Y* is a response variable and *Treatment* is a classification variable
+with $7$ levels. There are $10$ replicates for each level of *Treatment*.
+```{r}
+table(DeIdentifiedExample$Treatment)
+```
+
+###### A Gaussian one-way classification model
+We use a Gaussian one-way classification model (*i.e.*, an ANOVA model) for
+describing these data and testing whether there is an effect of *Treatment*.
+Formally, we define the model refered above in the following way. 
+Let $Y_{t,r}$ be a random variable representing the response of the 
+$r^\mbox{th}$ replicate ($r = 1, ..., 10$) of the experimental units 
+subjected to the $t^\mbox{th}$ treatment ($t = A, ..., G$). The model assumes that, $Y_{A, 1}, ... , Y_{G, 10}$ are independent and that
+$$
+   Y_{t,r} \sim N(\mu_t, \sigma^2), 
+   \mbox{ for }
+   t = A, ..., G \mbox{ and } r = 1, ..., 10 \, .
+$$
+This model, termed the *full model*, is adjusted in the following way.
+```{r}
+FULLmodel <- lm(Y ~ Treatment + 0, data = DeIdentifiedExample)
+coef(FULLmodel)
+```
+Comparing the model above with a *null model* given by 
+$$
+   Y_{t,r} \sim N(\mu, \sigma^2), 
+   \mbox{ for }
+   t = A, ..., G \mbox{ and } r = 1, ..., 10 \, ,
+$$
+with the full model allow us to test the null hypothesis
+$$
+H_0 : \mu_A = \mu_B = \mu_C = \mu_D = \mu_E = \mu_F = \mu_G 
+$$
+See the execution below.
+```{r}
+NULLmodel <- lm(Y ~ 1, data = DeIdentifiedExample)
+anova(NULLmodel, FULLmodel) 
+```
+Since the p-value of the F-test below is very small we reject the null
+hypothesis $H_0$ and conclude that there is at least one pair $(i,j)$ 
+(with $i,j= A, ..., G$) such that $\mu_i \ne \mu_j$. 
+
+###### Pairwise comparisons using the one-way classification model
+Once established that the means of the responses for the different treatments 
+are not all equal, we might want to identify all the pairs that are different
+using techniques of post-hoc analysis. 
+
+The funtion *posthoc* of the package *postHoc* calculates the p-values for the differences of each pair of levels of the factor *Treatment* and group the levels of *Treatment* in groups of significance (given a pre-fixed significance level, here taken as $0.05$). See the execution below.
+```{r}
+TT <- posthoc(Model = FULLmodel, EffectLabels = LETTERS[1:7], digits = 1)
+summary(TT)
+```
+The function *posthoc* uses a model as argument (here the "FULLmodel") and
+returns an object (here "TT") for which we can extract a range of information
+suitable for post hoc analysis. Here is a suite of those methods.
+```{r}
+print(TT)
+```
+```{r, fig.height = 5, fig.width = 6, fig.align ="center"}
+barplot(TT, ylim = c(5,21))
+abline(h = 5)
+```
+
+```{r, fig.height = 5, fig.width = 6, fig.align ="center"}
+lines(TT, ylim = c(5,21))
+```
+
+###### How posthoc constructs the grouping
+The function *posthoc* performs all the tests between pairs of the parameters
+of the models that are listed in the parameter *EffectIndices*. For example,
+the following calculations perform the tests for the tretments
+"B", "C","D", "E" and "G".
+```{r}
+ZZ <- posthoc(Model = FULLmodel, EffectIndices = c(2,3,4,5,7), digits = 2)
+```
+The object *ZZ* stores, among other things, the p-values of pairwise comperisons 
+between those treatments. See below.
+```{r}
+ZZ$PvaluesMatrix
+```
+Having computed all the p-values of all the possible pairs of the selected treatments, an undirected graph is constructed (here *graph* reffers to the mathematical structure componsed of vertices, or points, and edges, or lines connecting the points), using the following conventions. The vertices represent the fixed effects in the model (here the treatments), and two vertices are connected by an edge when the corresponding parameters in the model are **not** statistically significanltnly different at the pre-fixed signicance (here we use the default of $0.05$). See below.
+
+```{r, fig.height = 5, fig.width = 6, fig.align ="center"}
+set.seed(143)
+plot(ZZ)
+```
+
+The idea explored for classifying the treatments is to calculate all the maximal cliques in the representation graph. Here a clique is a set of vertices (treatments) for wich all their elements are connected by an edge. A clique is maximal when it is not a subset of a larger clique. Examining the graph despected above it is easy to see that $\{ B, D, E \}$ and $\{C, D, G \}$ are both maximal cliques in the graph above. These cliques are identified in the figure above by drawing regions with different colours. The maximal cliques form the groups of
+significantly different treatments. See below.
+```{r}
+summary(ZZ)
+```
+
+Note that the number of pairs to be compared in a post-hoc analysis growths very quickly with the number of effects studied (there are $n(n-1)/2$) possible pairs of $n$ objects); therefore, very complex patters can appear in post-hoc analyses, which might be difficult to see by nacked eyes. Fortunately, there are effective algoritmes to identify maximal cliques. See the example below constructed with all the $7$ treatments (yielding $7 . 6/2 = 21$ pairwise comparisons).
+
+```{r, fig.height = 5, fig.width = 6, fig.align ="center"}
+set.seed(1243)
+plot(TT)
+```
+
+*****
+
+

@@ -13,7 +13,6 @@
 #' @examples MM <- glm(Y ~ Treatment + 0,  data = DeIdentifiedExample)
 #' @examples GG <- posthoc(MM)
 #' @examples print(GG)
-#' @exportClass PostHoc
 #' @export
 print.PostHoc <- function(x, digits = 4, ...){
   object <- x
@@ -221,6 +220,7 @@ barplot.PostHoc <- function(height,
 #' @examples MM <- glm(Y ~ Treatment+0,  data = DeIdentifiedExample)
 #' @examples GG <- posthoc(MM)
 #' @examples lines(GG)
+#' @import graphics
 #' @export
 lines.PostHoc <- function(x,
                           col = "black",

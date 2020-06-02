@@ -100,3 +100,24 @@ ApproxWaldPvalues <- function(Effects, CovMatrix, DesignMatrix, padjust="fdr"){
   return(Pvalues)
 }
 # ============================================================================ #
+
+# ============================================================================ #
+#
+# Check and install required packages
+#
+# ============================================================================ #
+InsPack <- function(pack) {
+  if (!pack %in% installed.packages()) {
+    print(paste("installing",pack))
+    install.packages(pack) } else print(paste(pack,"already installed. :-)"))
+}
+
+InstallRequiredPackages <- function(){
+  InsPack("lme4")
+  InsPack("nlme")
+  InsPack("multcomp")
+  InsPack("permute")
+  InsPack("MASS")
+  InsPack("igraph")
+  InsPack("xtable")
+}

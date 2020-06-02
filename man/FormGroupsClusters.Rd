@@ -22,7 +22,8 @@ FormGroupsClusters(
 each possible pairs of effects in the lower triangle (excluding the diagonal)}
 
 \item{CI}{a matrix containing with three columns containint the effects,
-the lower limits and the upper limits of a confidence interval for the effects (default = NULL, indicating that no confidence intervals are available)}
+the lower limits and the upper limits of a confidence interval for the
+effects (default = NULL, indicating that no confidence intervals are available)}
 
 \item{Effects}{a vector containing the effects}
 

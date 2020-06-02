@@ -8,7 +8,7 @@ ExtractCI (Model, EffectIndices = NULL, EffectLabels = NULL,
          ParBootstrap = FALSE, Nboots = 999, digits = 4, coverage = 0.95,
          UpperBound = Inf, SignificanceLevel =  1-coverage,
          EffectsMatrix = NULL, Scale = 1.0, Location = 0.0,
-         isBinomialModel = FALSE)
+         isBinomialModel = FALSE, BackTransform = TRUE)
 }
 \arguments{
 \item{Model}{a model of class lm, glm, glmerMod, lme or gls.}
@@ -47,6 +47,9 @@ i.e., no location shift is performed).}
 
 \item{isBinomialModel}{a logical flag indicating whther the model is a
 binomial model different than the Bernoulli (default = FALSE, i.e. not a binomial model).}
+
+\item{BackTransform}{should the parameters and CIs be back transformed by
+applying the inverse link function (default = TRUE)}
 }
 \value{
 an object of (S3) class "PostHoc".
